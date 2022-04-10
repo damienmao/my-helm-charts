@@ -1,0 +1,41 @@
+
+@Library('wdcd-mpl@master') _
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'SERVICE', choices: ['payid-web-ui', 'npp-service-proxy', 'payid-backend', 'payid-crud-service'], description: 'Please Choose the Service you want to deploy')
+        string(name: 'FEATURE_BRANCH', defaultValue: '', description: 'Please enter the name of feature branch you want to deploy')
+	choice(name: 'ENVIRONMENT', choices: [ 'DEV1', 'DEV3', 'E2E4' ], description: 'Please Choose the Environment you want to deploy to')
+    }
+
+    stages {
+
+            stage('Deploy ') {
+                steps {
+                    script {
+                        def repo = params.SERVICE
+                        def branch = params.FEATURE_BRANCH.replace("/","%2F")
+                        echo "${branch}"
+			def deploymentEnv = 'Deploy_' + params.ENVIRONMENT
+			echo "To be deployed in : ${deploymentEnv}"
+
+                        def jobBuild = build job: repo+'/'+branch, parameters: [
+                          booleanParam(name: 'Docker_Image_Build',value: true),
+                          booleanParam(name: 'Artifactory_Publish',value:true),
+                          booleanParam(name: "${deploymentEnv}",value:true),
+                          booleanParam(name: 'deployBranch',value:true),
+                          booleanParam(name: 'Unit_Test',value:false),
+                          booleanParam(name: 'UI_Test',value:false),
+                          booleanParam(name: 'Sonarqube_Scan',value:false),
+                          booleanParam(name: 'BlackDuck_Scan',value:false),
+                          booleanParam(name: 'Maven_Integration_Test',value:false)
+                         ], propagate: false
+                    }
+                }
+            }
+
+    }
+
+}
