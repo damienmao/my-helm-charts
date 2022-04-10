@@ -1,0 +1,21 @@
+@Library('wdcd-mpl@master') _
+node("nodejs10-docker"){
+            def baseDirectory = "."
+            stage('Check out source'){
+                            script{
+                                checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '*/develop']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'github-key', url: 'https://github.service.anz/WDCD/payid-web-ui.git']]]
+                            }
+                        }
+
+            stage('Install dependencies'){
+                            nodeDependencies(baseDirectory,"--ignore-engines")
+                       } 
+
+            stage('Run System Tests'){
+                            def dockerPullRegistry="dtrqa.docker.service.anz/ddtb_cashmgmt"
+                            def testCommand = "yarn test:wdio:dev3"
+                            def uiReportCommand = "yarn report:generate"
+                            def exportCommand = "mkdir -p ./automation-st/node_modules/fibers/bin && cp -rip /test/node_modules/fibers/bin/ ./automation-st/node_modules/fibers/bin/ && yarn test:export"
+                            jsUITest(dockerPullRegistry, testCommand, exportCommand, uiReportCommand, baseDirectory)
+                       	}
+}

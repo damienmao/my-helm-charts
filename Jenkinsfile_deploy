@@ -1,0 +1,83 @@
+@Library('wdcd-mpl@master') _
+
+pipeline {
+    agent any
+
+    parameters {
+            choice(name: 'ENVIRONMENT', choices: ['DEV3', 'DEV1', 'E2E4', 'QA1'], description: 'Please Select the Environment you want to deploy')
+            choice(name: 'SERVICE', choices: ['payid-web-ui', 'npp-service-proxy', 'payid-backend', 'payid-crud-service'], description: 'Please Choose the Service you want to deploy')
+        }
+
+    stages {
+
+            stage('Deploying into Environment') {
+                steps {
+                    script {
+                        echo "${params.ENVIRONMENT}"
+
+                        def isStartedByUser = currentBuild.rawBuild.getCause(hudson.model.Cause$UserIdCause) != null
+                        def jobBuild = null
+                        if (params.ENVIRONMENT == "DEV1") {
+                            jobBuild = build job: params.SERVICE + '/develop', parameters: [
+                                                     booleanParam(name: 'Docker_Image_Build',value: true),
+                                                     booleanParam(name: 'Artifactory_Publish',value:true),
+                                                     booleanParam(name: 'Deploy_DEV1',value:true),
+                                                     booleanParam(name: 'deployBranch',value:true),
+                                                     booleanParam(name: 'Unit_Test',value:false),
+                                                     booleanParam(name: 'Sonarqube_Scan',value:false),
+                                                     booleanParam(name: 'BlackDuck_Scan',value:false),
+                                                     booleanParam(name: 'Maven_Integration_Test',value:false)
+                                                    ], propagate: false
+                        } else if(params.ENVIRONMENT == "E2E4") {
+                            jobBuild = build job: params.SERVICE + '/develop', parameters: [
+                                                     booleanParam(name: 'Docker_Image_Build',value: true),
+                                                     booleanParam(name: 'Artifactory_Publish',value:true),
+                                                     booleanParam(name: 'Deploy_E2E4',value:true),
+                                                     booleanParam(name: 'deployBranch',value:true),
+                                                     booleanParam(name: 'Unit_Test',value:false),
+                                                     booleanParam(name: 'Sonarqube_Scan',value:false),
+                                                     booleanParam(name: 'BlackDuck_Scan',value:false),
+                                                     booleanParam(name:'UI_Test',value:false),
+                                                     booleanParam(name: 'Maven_Integration_Test',value:false)
+                                                    ], propagate: false
+                        } else if(params.ENVIRONMENT == "QA1") {
+                            jobBuild = build job: params.SERVICE + '/develop', parameters: [
+                                                     booleanParam(name: 'Docker_Image_Build',value: true),
+                                                     booleanParam(name: 'Artifactory_Publish',value:true),
+                                                     booleanParam(name: 'Deploy_QA1',value:true),
+                                                     booleanParam(name: 'deployBranch',value:true),
+                                                     booleanParam(name: 'Unit_Test',value:false),
+                                                     booleanParam(name: 'Sonarqube_Scan',value:false),
+                                                     booleanParam(name: 'BlackDuck_Scan',value:false),
+                                                     booleanParam(name: 'Maven_Integration_Test',value:false)
+                                                     ], propagate: false
+                        } else {
+                            jobBuild = build job: params.SERVICE + '/develop', parameters: [
+                                                     booleanParam(name: 'Docker_Image_Build',value: true),
+                                                     booleanParam(name: 'Artifactory_Publish',value:true),
+                                                     booleanParam(name: 'Deploy_DEV3',value:true),
+                                                     booleanParam(name: 'deployBranch',value:true),
+                                                     booleanParam(name: 'Unit_Test',value:false),
+                                                     booleanParam(name:'UI_Test',value:false),
+                                                     booleanParam(name: 'Sonarqube_Scan',value:false),
+                                                     booleanParam(name: 'BlackDuck_Scan',value:false),
+                                                     booleanParam(name: 'Maven_Integration_Test',value:false)
+                                                    ], propagate: false
+                        }
+
+
+                        if(!isStartedByUser){
+                            def jobResult = jobBuild.getResult()
+                            if (jobResult != 'SUCCESS') {
+                                currentBuild.result = "FAILURE"
+                                throw new Exception("pipeline failed")
+                            }
+
+                        }
+                    }
+                }
+            }
+
+    }
+
+}

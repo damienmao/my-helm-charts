@@ -1,0 +1,51 @@
+@Library('wdcd-mpl@master') _
+
+def jobResult_WebUI=''
+def jobResult_Crud=''
+def jobResult_Bff=''
+def jobResult_Proxy=''
+
+pipeline {
+    agent any
+    environment {
+        environmentName = "DEV1"
+    }
+     triggers {
+        cron('H 20 * * *')
+    }
+    stages {
+
+            stage('Deploy payid-crud-service into Dev1') {
+                steps {
+                    script {
+                        def isStartedByUser = currentBuild.rawBuild.getCause(hudson.model.Cause$UserIdCause) != null
+                        def jobBuild = build job: 'payid-crud-service/develop', parameters: [booleanParam(name: 'Docker_Image_Build',value: true),
+                         booleanParam(name: 'Artifactory_Publish',value:true),
+                         booleanParam(name: 'Email_Notification',value:false),
+                              booleanParam(name: 'Unit_Test',value:false),
+                                                 booleanParam(name: 'Maven_Integration_Test',value:false),
+                         string(name: 'Deploy_DEV1',value:'true')], propagate: false
+
+                        jobResult_Crud = jobBuild.getResult()
+                        if (jobResult_Crud != 'SUCCESS') {
+                            EMAIL_SUBJECT = "Auto Deploy - payid-crud-service Fail to deploy to ..${environmentName} :("
+                        } else{
+                            EMAIL_SUBJECT = "Auto Deploy - payid-crud-service Successfully build and deploy to ..${environmentName} :)"
+                        }
+                        checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'github-key', url: 'https://github.service.anz/WDCD/wdcd-platform.git']]]
+
+                        EMAIL_RECIPIENTS="WDCD – NPP Squad <WDCD-NPP@anz.com>"
+                        EMAIL_MESSAGE=EMAIL_SUBJECT
+
+                        withCredentials([usernamePassword(credentialsId: 'Email_Notifications', passwordVariable: 'EMAIL_PASSWORD', usernameVariable: 'EMAIL_USERNAME')]) {
+                            sh "python common/src/main/resources/email_utility.py 'applicationrelay.anz.com' 25 'WDCD_PLATFORM_DO_NOT_REPLY@anz.com' '${EMAIL_RECIPIENTS}' '${EMAIL_SUBJECT}' '${EMAIL_MESSAGE}'"
+                        }
+                    }
+                }
+            }
+
+
+
+    }
+
+}
